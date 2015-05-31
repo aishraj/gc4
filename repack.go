@@ -1,23 +1,26 @@
 package main
 
-import "fmt"
+import (
+	"log"
+)
 
 // A repacker repacks trucks.
 type repacker struct {
 }
 
-// This repacker is the worst possible, since it uses a new pallet for
-// every box. Your job is to replace it with something better.
-func oneBoxPerPallet(t *truck) (out *truck) {
-	out = &truck{id: t.id}
-	for _, p := range t.pallets {
-		for _, b := range p.boxes {
-			b.x, b.y = 0, 0
-			out.pallets = append(out.pallets, pallet{boxes: []box{b}})
-		}
-	}
-	return
+type Fit int
+
+type shelf struct {
+	minHeight, maxHeight, width uint8
 }
+
+const (
+	_               = iota
+	VerticalFit Fit = 1 << iota
+	HorizontalFit
+	NewShelfFit
+	UnFit
+)
 
 func shelfNF(t *truck) (out *truck) {
 	out = &truck{id: t.id}
@@ -25,90 +28,100 @@ func shelfNF(t *truck) (out *truck) {
 	//collect all boxes
 	for _, p := range t.pallets {
 		for _, b := range p.boxes {
+			//log.Println(b.id)
 			boxes = append(boxes, b)
 		}
 	}
 	//the worst we can do is have one pallet per box
 	outPallets := make([]pallet, 0, len(boxes))
 	var uno pallet
-	var shelf []uint8
+	var shelves []shelf
 	//for every box
 	for _, item := range boxes {
-		//if its the first pallet, then create a new shelf and add the box to it
-		if len(outPallets) == 0 {
-			uno, shelf = makePallet(item)
+		//	log.Println("The state of UNO is:", uno.OneLine())
+		if len(shelves) == 0 {
+			log.Printf("Box %v is the first one\n", item.id)
+			uno, shelves = makePallet(item)
+			continue
 		}
-		//if we can add to the current pallet add the box, if requied update the shelf
-		//todo figure out if this is pass by reference or value, if now passing a pointer so that i can modify it and is reflected here
-		if fitsCurrentShelf(uno, item, &shelf) {
-			uno = addToPallet(uno, item, &shelf)
-		} else if fitsNextShelf(uno, item, &shelf) {
-			uno = addToNewShelf(uno, item, &shelf)
-		} else {
+		fitness := findFit(uno, item, &shelves)
+		switch fitness {
+		case HorizontalFit:
+			log.Printf("Box %v fits horizontal.\n", item.id)
+			item = sideWays(item)
+			uno = addToPallet(uno, item, &shelves)
+			break
+		case VerticalFit:
+			log.Printf("Box %v fits vertical.\n", item.id)
+			item = upRight(item)
+			uno = addToPallet(uno, item, &shelves)
+			break
+		case NewShelfFit:
+			log.Printf("Box %v fits in a new shelf \n", item.id)
+			topShelf := shelves[len(shelves)-1]
+			log.Println("Topshelf is :", topShelf)
+			item = sideWays(item)
+			newTopShelf := shelf{minHeight: topShelf.maxHeight, maxHeight: (item.l + topShelf.maxHeight), width: 0}
+			log.Println("New Top shelf is:", newTopShelf)
+			shelves = append(shelves, newTopShelf)
+			log.Println("checking if uno is valid BEFORE: ", uno.IsValid())
+			uno = addToPallet(uno, item, &shelves)
+			log.Println("checking if uno is valid AFTER: ", uno.IsValid())
+			break
+		case UnFit:
+			log.Printf("Box %v does not fit in this pallet. Need a new pallet", item.id)
+			//this means that uno is out of space.
+			//we add it to the staging area and get a new pallet
+			dummyTruck := truck{id: 0}
+			dummyTruck.pallets = outPallets
+			//log.Println("Current state of pallets is:", dummyTruck)
 			outPallets = append(outPallets, uno)
-			uno, shelf = makePallet(item)
+			uno, shelves = makePallet(item)
+			break
+		default:
+			panic("Does not fit anywhere. Its an error")
 		}
+	}
+	if len(uno.boxes) > 0 {
+		outPallets = append(outPallets, uno)
 	}
 	//put it in the truck
 	out.pallets = outPallets
-	//steps
-	// for every pallet we get, iterate over the boxes
-	// for every box, try to see if this is the first box. if yes put it sideWays
-	// if this is not the first box, try to put vertically
-	// if we can't put it vertically, try putting it sideWays
-	// if that does not work either, move on to the next pallet (brand new)
-	// do this for all boxes irresepctive of which pallet they came in
+	log.Println("Outgoing truck is :", out)
 	return
 }
 
-func fitsCurrentShelf(uno pallet, item box, shelf *[]uint8) bool {
-	//TODO: add
-	//first check if the current shelf has space. all we need to do is check if the current box fits
-	// first in a vertical way.
-	//if not in a horizontal way in the current shelf (we need to check the width)
-	if len(*shelf) == 0 {
-		horizontalBox := item.canon()
-		*shelf = append(*shelf, horizontalBox.l)
-		return true
+func findFit(pall pallet, item box, shelves *[]shelf) Fit {
+	topShelf := (*shelves)[len(*shelves)-1]
+	upBox := upRight(item)
+	sideBox := sideWays(item)
+	if upBox.l < topShelf.maxHeight && (upBox.w+topShelf.width < palletWidth) {
+		return HorizontalFit
 	}
-	shelfHeignt := (*shelf)[len(*shelf)-1]
-	verticalBox := upRight(item)
-	if verticalBox.l < shelfHeignt {
-		//now we check the width
-		
+	if sideBox.l < topShelf.maxHeight && (sideBox.w+topShelf.width < palletWidth) {
+		return VerticalFit
 	}
-	horizontalBox := sideWays(item)
-	if horizontalBox.
+	if (sideBox.l + topShelf.maxHeight) < palletLength {
+		return NewShelfFit
+	}
+	return UnFit
 }
 
-func fitsNextShelf(uno pallet, item box, shelf *[]uint8) bool {
-	//TODO: add
-	//first check if the current shelf has space
-	// here we need to check the remaining height and then decide
-	return false
-}
-
-func addToPallet(uno pallet, item box, shelf *[]uint8) pallet {
-	//it should keep track of the shelves
-	//probably a map is a good way to keep track of this
-	//map[pallet][]int ie map of a pallet to a slice of int
-	//or maybe not even a map, just have a slice of int, and pass it over here. each time we add a box to the pallet, we add the current top shelf
-	//if the top slef i
-	//each element of the slice represents the current peak in the pallet
-	//the peak cannot exceed height of the pallet ie (peak < max(palletWidth, palletLength)
+func addToPallet(uno pallet, item box, shelves *[]shelf) pallet {
+	currentTop := (*shelves)[len(*shelves)-1]
+	item.x = currentTop.width
+	item.y = currentTop.minHeight
+	currentTop.width += item.w
+	(*shelves)[len(*shelves)-1] = currentTop
+	uno.boxes = append(uno.boxes, item)
 	return uno
 }
 
-func addToNewShelf(uno pallet, item box, shelf *[]uint8) pallet {
-	return uno
-}
+func makePallet(item box) (packet pallet, shelves []shelf) {
+	item = item.canon()
 
-func makePallet(item box) (packet pallet, shelf []uint8) {
-	item = sideWays(item)
-	item.x = 0
-	item.y = 0
-
-	shelf = append(shelf, item.l)
+	bottomShelf := shelf{minHeight: 0, maxHeight: item.l, width: item.w}
+	shelves = append(shelves, bottomShelf)
 	packet = pallet{boxes: []box{item}}
 	return
 }
@@ -136,7 +149,7 @@ func newRepacker(in <-chan *truck, out chan<- *truck) *repacker {
 			// need to do something special here to make sure you
 			// send all the boxes.
 			if t.id == idLastTruck {
-				fmt.Println("Last truck crap...")
+				log.Println("Last truck...")
 			}
 
 			//t = oneBoxPerPallet(t)
