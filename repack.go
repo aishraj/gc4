@@ -8,7 +8,7 @@ import (
 type repacker struct {
 }
 
-type Fit int
+type fit int
 
 type shelf struct {
 	minHeight, maxHeight, width uint8
@@ -16,7 +16,7 @@ type shelf struct {
 
 const (
 	_               = iota
-	VerticalFit Fit = 1 << iota
+	VerticalFit fit = 1 << iota
 	HorizontalFit
 	NewShelfFit
 	UnFit
@@ -77,7 +77,7 @@ func shelfNF(t *truck) (out *truck) {
 	return
 }
 
-func findFit(item box, shelves *[]shelf) Fit {
+func findFit(item box, shelves *[]shelf) fit {
 	topShelf := (*shelves)[len(*shelves)-1]
 	upBox := upRight(item)
 	sideBox := sideWays(item)
