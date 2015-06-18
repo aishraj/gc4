@@ -4,6 +4,8 @@ import (
 	"log"
 )
 
+//This implementation is based on http://clb.demon.fi/files/RectangleBinPack.pdf
+
 // A repacker repacks trucks.
 type repacker struct {
 }
@@ -14,14 +16,18 @@ type shelf struct {
 	minHeight, maxHeight, width uint8
 }
 
+//
 const (
 	_               = iota
-	VerticalFit fit = 1 << iota
-	HorizontalFit
-	NewShelfFit
-	UnFit
+	verticalFit fit = 1 << iota
+	horizontalFit
+	newShelfFit
+	unFit
 )
 
+// shelfNF uses a 'shelf' based implemeantion to pack the given pallets.
+// It accepts a truck, collects all boxes , packs them and put them  back in a truck
+// and returns the truck.
 func shelfNF(t *truck) (out *truck) {
 	out = &truck{id: t.id}
 	var boxes []box
@@ -34,7 +40,7 @@ func shelfNF(t *truck) (out *truck) {
 	var outPallets []pallet
 	var uno pallet
 	var shelves []shelf
-	//for every box
+
 	for _, item := range boxes {
 		if len(shelves) == 0 {
 			uno, shelves = makePallet(item)
@@ -42,22 +48,22 @@ func shelfNF(t *truck) (out *truck) {
 		}
 		fitness := findFit(item, &shelves)
 		switch fitness {
-		case HorizontalFit:
+		case horizontalFit:
 			item = sideWays(item)
 			uno = addToPallet(uno, item, &shelves)
 			break
-		case VerticalFit:
+		case verticalFit:
 			item = upRight(item)
 			uno = addToPallet(uno, item, &shelves)
 			break
-		case NewShelfFit:
+		case newShelfFit:
 			topShelf := shelves[len(shelves)-1]
 			item = sideWays(item)
 			newTopShelf := shelf{minHeight: topShelf.maxHeight, maxHeight: (item.l + topShelf.maxHeight), width: 0}
 			shelves = append(shelves, newTopShelf)
 			uno = addToPallet(uno, item, &shelves)
 			break
-		case UnFit:
+		case unFit:
 			//this means that uno is out of space.
 			//we add it to the staging area and get a new pallet
 			dummyTruck := truck{id: 0}
@@ -66,31 +72,32 @@ func shelfNF(t *truck) (out *truck) {
 			uno, shelves = makePallet(item)
 			break
 		default:
-			panic("Does not fit anywhere. Its an error")
+			panic("Does not fit anywhere, despite allocating a new pallet. Its an error")
 		}
 	}
 	if len(uno.boxes) > 0 {
 		outPallets = append(outPallets, uno)
 	}
-	//put it in the truck
 	out.pallets = outPallets
 	return
 }
 
+// findFit finds out whether the box fits the given shelf or not.
+// In case it does fit the shelf, it returns the orienatation of the fitness.
 func findFit(item box, shelves *[]shelf) fit {
 	topShelf := (*shelves)[len(*shelves)-1]
 	upBox := upRight(item)
 	sideBox := sideWays(item)
 	if upBox.l+topShelf.minHeight <= topShelf.maxHeight && (upBox.w+topShelf.width <= palletWidth) && (upBox.l+topShelf.minHeight <= palletLength) {
-		return VerticalFit
+		return verticalFit
 	}
 	if sideBox.l+topShelf.minHeight <= topShelf.maxHeight && (sideBox.w+topShelf.width <= palletWidth) && (sideBox.l+topShelf.minHeight <= palletLength) {
-		return HorizontalFit
+		return horizontalFit
 	}
 	if (sideBox.l + topShelf.maxHeight) <= palletLength {
-		return NewShelfFit
+		return newShelfFit
 	}
-	return UnFit
+	return unFit
 }
 
 func addToPallet(uno pallet, item box, shelves *[]shelf) pallet {
@@ -109,22 +116,6 @@ func makePallet(item box) (packet pallet, shelves []shelf) {
 	bottomShelf := shelf{minHeight: 0, maxHeight: item.l, width: item.w}
 	shelves = append(shelves, bottomShelf)
 	packet = pallet{boxes: []box{item}}
-	return
-}
-
-func sideWays(inbox box) (outbox box) {
-	outbox = inbox
-	if outbox.w < outbox.l {
-		outbox.l, outbox.w = outbox.w, outbox.l
-	}
-	return
-}
-
-func upRight(inbox box) (outbox box) {
-	outbox = inbox
-	if outbox.l < outbox.w {
-		outbox.l, outbox.w = outbox.w, outbox.l
-	}
 	return
 }
 
