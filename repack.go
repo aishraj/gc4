@@ -28,53 +28,40 @@ func shelfNF(t *truck) (out *truck) {
 	//collect all boxes
 	for _, p := range t.pallets {
 		for _, b := range p.boxes {
-			//log.Println(b.id)
 			boxes = append(boxes, b)
 		}
 	}
-	//the worst we can do is have one pallet per box
-	outPallets := make([]pallet, 0, len(boxes))
+	var outPallets []pallet
 	var uno pallet
 	var shelves []shelf
 	//for every box
 	for _, item := range boxes {
-		//log.Println("The state of UNO is:", uno.OneLine())
 		if len(shelves) == 0 {
-			//log.Println("Box %v is the first one\n", item.id)
 			uno, shelves = makePallet(item)
 			continue
 		}
 		fitness := findFit(item, &shelves)
 		switch fitness {
 		case HorizontalFit:
-			//log.Printf("Box %v fits horizontal.\n", item.id)
 			item = sideWays(item)
 			uno = addToPallet(uno, item, &shelves)
 			break
 		case VerticalFit:
-			//log.Printf("Box %v fits vertical.\n", item.id)
 			item = upRight(item)
 			uno = addToPallet(uno, item, &shelves)
 			break
 		case NewShelfFit:
-			//log.Printf("Box %v fits in a new shelf \n", item.id)
 			topShelf := shelves[len(shelves)-1]
-			//log.Println("Topshelf is :", topShelf)
 			item = sideWays(item)
 			newTopShelf := shelf{minHeight: topShelf.maxHeight, maxHeight: (item.l + topShelf.maxHeight), width: 0}
-			//log.Println("New Top shelf is:", newTopShelf)
 			shelves = append(shelves, newTopShelf)
-			//log.Println("checking if uno is valid BEFORE: ", uno.IsValid())
 			uno = addToPallet(uno, item, &shelves)
-			//log.Println("checking if uno is valid AFTER: ", uno.IsValid())
 			break
 		case UnFit:
-			//log.Printf("Box %v does not fit in this pallet. Need a new pallet", item.id)
 			//this means that uno is out of space.
 			//we add it to the staging area and get a new pallet
 			dummyTruck := truck{id: 0}
 			dummyTruck.pallets = outPallets
-			//log.Println("Current state of pallets is:", dummyTruck)
 			outPallets = append(outPallets, uno)
 			uno, shelves = makePallet(item)
 			break
@@ -87,12 +74,10 @@ func shelfNF(t *truck) (out *truck) {
 	}
 	//put it in the truck
 	out.pallets = outPallets
-	//log.Println("Outgoing truck is :", out)
 	return
 }
 
 func findFit(item box, shelves *[]shelf) Fit {
-	//log.Println("shelves are:", shelves)
 	topShelf := (*shelves)[len(*shelves)-1]
 	upBox := upRight(item)
 	sideBox := sideWays(item)
