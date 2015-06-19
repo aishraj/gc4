@@ -18,5 +18,16 @@ func TestFitness(t *testing.T) {
 	if boxFitness != exepctedFitness {
 		t.Errorf("The box does not fit the shelf. Expected %v got %v", exepctedFitness, boxFitness)
 	}
+}
 
+func TestPacking(t *testing.T) {
+	demoTruck := truck{id: 4, pallets: nil}
+	sampleBox1 := box{x: 0, y: 3, w: 2, l: 2, id: 2}
+	sampleBox2 := box{x: 0, y: 2, w: 3, l: 3, id: 1}
+	samplePallet := pallet{boxes: []box{sampleBox1, sampleBox2}}
+	demoTruck.pallets = append(demoTruck.pallets, samplePallet)
+	outPallets := shelfNF(&demoTruck)
+	if len(outPallets.pallets) != 2 {
+		t.Error("Exepected 2 pallets int truck. Got :", len(outPallets.pallets))
+	}
 }
