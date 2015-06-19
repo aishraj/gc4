@@ -25,6 +25,21 @@ const (
 	unFit
 )
 
+func (f fit) String() string {
+	switch f {
+	case verticalFit:
+		return "VerticalFit"
+	case horizontalFit:
+		return "horizontalFit"
+	case newShelfFit:
+		return "newShelfFit"
+	case unFit:
+		return "unFit"
+	default:
+		return "Unknown Value"
+	}
+}
+
 // shelfNF uses a 'shelf' based implemeantion to pack the given pallets.
 // It accepts a truck, collects all boxes , packs them and put them  back in a truck
 // and returns the truck.
