@@ -1,9 +1,5 @@
 package main
 
-import (
-	"log"
-)
-
 //This implementation is based on http://clb.demon.fi/files/RectangleBinPack.pdf
 
 // A repacker repacks trucks.
@@ -141,7 +137,6 @@ func newRepacker(in <-chan *truck, out chan<- *truck) *repacker {
 			// need to do something special here to make sure you
 			// send all the boxes.
 			if t.id == idLastTruck {
-				log.Println("Last truck...")
 			}
 
 			//t = oneBoxPerPallet(t)
